@@ -33,13 +33,6 @@ Please check out our paper [here](https://arxiv.org/abs/2203.11183).
 
 ```
 pip install -r requirements.txt
-```
-
-#### Building Pytorch Extensions for PointNet++ and kNN
-
-*NOTE:* PyTorch >= 1.7 and GCC >= 4.9 are required.
-
-```
 bash install.sh
 ```
 
