@@ -38,7 +38,9 @@ bash install.sh
 
 ### Dataset
 
-We use **ShapeNet** for the pre-training of MaskPoint models. And finetuning the MaskPoint models on **ModelNet**, **ScanObjectNN**, **ShapeNetPart**
+For **ModelNet40**, **ScanObjectNN**, and **ShapeNetPart** datasets, we use **ShapeNet** for the pre-training of MaskPoint models, and then finetune on these datasets respectively.
+
+For **ScanNetV2** object detection dataset, we use **ScanNet-Medium** for the pre-training.  Please refer to the paper Sec. 4 [Pretraining Datasets] for details.
 
 The details of used datasets can be found in [DATASET.md](./DATASET.md).
 
