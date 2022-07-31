@@ -8,7 +8,8 @@ from utils.checkpoint import get_missing_parameters_message, get_unexpected_para
 from utils.logger import *
 import random
 from extensions.pointops.functions import pointops
-from .transformer import TransformerEncoder, TransformerDecoder, Group, Encoder
+from .transformer import TransformerEncoder, TransformerDecoder, Group, DummyGroup, Encoder
+from .detr.build import build_encoder as build_encoder_3detr, build_preencoder as build_preencoder_3detr
 
 
 @MODELS.register_module()
@@ -31,7 +32,9 @@ class PointTransformer(nn.Module):
         self.encoder_dims =  config.encoder_dims
         self.encoder = Encoder(encoder_channel = self.encoder_dims)
         # bridge encoder and transformer
-        self.reduce_dim = nn.Linear(self.encoder_dims,  self.trans_dim)
+        self.reduce_dim = nn.Identity()
+        if self.encoder_dims != self.trans_dim:
+            self.reduce_dim = nn.Linear(self.encoder_dims, self.trans_dim)
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, self.trans_dim))
         self.cls_pos = nn.Parameter(torch.randn(1, 1, self.trans_dim))
@@ -140,7 +143,11 @@ class MaskPointTransformer(nn.Module):
     def __init__(self, config, **kwargs):
         super().__init__()
         self.config = config
-        # define the transformer argparse
+        # define the encoder
+        self.num_group = config.transformer_config.num_group
+        self.group_size = config.transformer_config.group_size
+        self.encoder_dims = config.transformer_config.encoder_dims
+        # define the transformer
         self.mask_ratio = config.transformer_config.mask_ratio
         self.trans_dim = config.transformer_config.trans_dim
         self.depth = config.transformer_config.depth
@@ -156,11 +163,16 @@ class MaskPointTransformer(nn.Module):
         self.ambiguous_dynamic_threshold = config.transformer_config.ambiguous_dynamic_threshold
         print_log(f'[Transformer args] {config.transformer_config}', logger = 'MaskPoint')
         # define the encoder
-        self.encoder_dims = config.transformer_config.encoder_dims
-        self.encoder = Encoder(encoder_channel = self.encoder_dims)
+        self.enc_arch = config.transformer_config.get('enc_arch', 'PointViT')
+        if self.enc_arch == '3detr':
+            self.encoder = build_preencoder_3detr(num_group=self.num_group, group_size=self.group_size, dim=self.encoder_dims)
+        else:
+            self.encoder = Encoder(encoder_channel = self.encoder_dims)
         # bridge encoder and transformer
-        self.reduce_dim = nn.Linear(self.encoder_dims, self.trans_dim)
-        
+        self.reduce_dim = nn.Identity()
+        if self.encoder_dims != self.trans_dim:
+            self.reduce_dim = nn.Linear(self.encoder_dims, self.trans_dim)
+
         # define the learnable tokens
         self.cls_token = nn.Parameter(torch.randn(1, 1, self.trans_dim))
         self.mask_token = nn.Parameter(torch.randn(1, 1, self.trans_dim))
@@ -175,12 +187,19 @@ class MaskPointTransformer(nn.Module):
 
         # define the transformer blocks
         dpr = [x.item() for x in torch.linspace(0, self.drop_path_rate, self.depth)]
-        self.blocks = TransformerEncoder(
-            embed_dim = self.trans_dim,
-            depth = self.depth,
-            drop_path_rate = dpr,
-            num_heads = self.num_heads
-        )
+        if self.enc_arch == '3detr':
+            self.blocks = build_encoder_3detr(
+                ndim=self.trans_dim,
+                nhead=self.num_heads,
+                nlayers=self.depth
+            )
+        else:
+            self.blocks = TransformerEncoder(
+                embed_dim = self.trans_dim,
+                depth = self.depth,
+                drop_path_rate = dpr,
+                num_heads = self.num_heads
+            )
         self.decoder = TransformerDecoder(
             embed_dim = self.trans_dim,
             depth = self.dec_depth,
@@ -226,7 +245,7 @@ class MaskPointTransformer(nn.Module):
         fake_target = torch.rand(B, self.dec_query_fake_num, 3, dtype=target.dtype, device=target.device) * (max_coords - min_coords) + min_coords
         return fake_target
 
-    def _generate_query_xyz(self, points, center, masked_centers, masked_neighbors, invisible_centers=None, mode='center'):
+    def _generate_query_xyz(self, points, center, mode='center'):
         if mode == 'center':
             target = center
         elif mode == 'points':
@@ -262,9 +281,13 @@ class MaskPointTransformer(nn.Module):
         return group_input_tokens
 
     def forward(self, neighborhood, center, only_cls_tokens = False, noaug = False, points_orig=None):
-        group_input_tokens = self.preencoder(neighborhood)
-
-        B, G, K, _ = neighborhood.shape
+        if self.enc_arch == '3detr':
+            pre_enc_xyz, group_input_tokens, pre_enc_inds = self.preencoder(center)
+            group_input_tokens = group_input_tokens.permute(0, 2, 1)
+            center = pre_enc_xyz
+        else:
+            group_input_tokens = self.preencoder(neighborhood)
+        B, G, _ = center.shape
         mask = torch.zeros(B, G, dtype=torch.bool, device=center.device)
         if not noaug:
             if type(self.mask_ratio) is list:
@@ -281,32 +304,31 @@ class MaskPointTransformer(nn.Module):
 
         masked_input_tokens = group_input_tokens[~mask].view(B, n_unmask, -1)
         masked_centers = center[~mask].view(B, n_unmask, -1)
-        if not noaug:
-            invisible_centers = center[mask].view(B, n_mask, -1)
-        else:
-            invisible_centers = None
-        masked_neighborhood = neighborhood[~mask].view(B, n_unmask, K, -1)
-        batch_size, seq_len, _ = masked_input_tokens.size()
 
-        cls_tokens = self.cls_token.expand(batch_size, -1, -1)
-        cls_pos = self.cls_pos.expand(batch_size, -1, -1)
+        cls_tokens = self.cls_token.expand(B, -1, -1)
+        cls_pos = self.cls_pos.expand(B, -1, -1)
 
         pos = self.pos_embed(masked_centers)
 
-        x = torch.cat((cls_tokens, masked_input_tokens), dim=1)
-        pos = torch.cat((cls_pos, pos), dim=1)
+        if self.enc_arch == '3detr':
+            x = self.blocks(masked_input_tokens.transpose(0, 1), pos=pos.transpose(0, 1))[1].transpose(0, 1)
 
-        x = self.blocks(x, pos)
-        x = self.norm(x)
+            if only_cls_tokens:
+                return self.cls_head(torch.mean(x, dim=1))
+        else:
+            x = torch.cat((cls_tokens, masked_input_tokens), dim=1)
+            pos = torch.cat((cls_pos, pos), dim=1)
 
-        if only_cls_tokens:
-            return self.cls_head(x[:, 0])
+            x = self.blocks(x, pos)
+            x = self.norm(x)
 
-        query_points, query_labels = self._generate_query_xyz(points_orig, center, masked_centers, masked_neighborhood, mode=self.dec_query_mode, invisible_centers=invisible_centers)
+            if only_cls_tokens:
+                return self.cls_head(x[:, 0])
+
+        query_points, query_labels = self._generate_query_xyz(points_orig, center, mode=self.dec_query_mode)
 
         query_pos = self.pos_embed(query_points)
         query_tensor = torch.zeros_like(query_pos)
-        # query_preds = self.bin_cls_head(self.decoder(query_tensor, query_pos, x[:, 1:], mem_pos)).transpose(1, 2)
         dec_outputs = self.decoder(query_tensor, query_pos, x, pos)
         query_preds = self.bin_cls_head(dec_outputs).transpose(1, 2)
 
@@ -341,7 +363,8 @@ class MaskPoint(nn.Module):
         self.num_group = config.transformer_config.num_group
 
         print_log(f'[MaskPoint Group] divide point cloud into G{self.num_group} x S{self.group_size} points ...', logger ='MaskPoint')
-        self.group_divider = Group(num_group = self.num_group, group_size = self.group_size)
+        self.enc_arch = config.transformer_config.get('enc_arch', 'PointViT')
+        self.group_divider = (DummyGroup if self.enc_arch == '3detr' else Group)(num_group = self.num_group, group_size = self.group_size)
 
         # create the queue
         self.register_buffer("queue", torch.randn(self.transformer_q.cls_dim, self.K))

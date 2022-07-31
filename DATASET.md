@@ -64,3 +64,20 @@ The overall directory structure should be:
 │  ├── training_objectdataset.h5
 │  ├── test_objectdataset.h5
 ```
+
+
+**ScanNet Dataset:** Prepare the pretraining dataset following the instructions from [DepthContrast](https://github.com/facebookresearch/DepthContrast/tree/main/data/scannet), and place it into `data/ScanNet/scannet`. To prepare the data faster, you can change the count from `10` to `100` at [here](https://github.com/facebookresearch/DepthContrast/blob/main/data/scannet/extract_pointcloud.py#L42) and [here](https://github.com/facebookresearch/DepthContrast/blob/main/data/scannet/extract_pointcloud.py#L45). The directory structure should be:
+```
+│ScanNet/
+├──scannet/
+│  ├──scene0000_00/
+│    ├── 0.npy
+│    ├── 100.npy
+│    ├── ...
+│  ├──scene0000_01/
+│    ├── 0.npy
+│    ├── 100.npy
+│    ├── ...
+│  ├──...
+
+```

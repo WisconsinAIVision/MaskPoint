@@ -25,6 +25,14 @@ class Group(nn.Module):
         neighborhood = neighborhood - center.unsqueeze(2)
         return neighborhood, center
 
+
+class DummyGroup(Group):
+    def forward(self, xyz):
+        center = xyz
+        neighborhood = torch.zeros_like(xyz).unsqueeze(2)
+        return neighborhood, center
+
+
 class Encoder(nn.Module):
     def __init__(self, encoder_channel):
         super().__init__()

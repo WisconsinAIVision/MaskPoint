@@ -107,7 +107,6 @@ def run_net(args, config, train_writer=None, val_writer=None):
         losses = AverageMeter(['Loss1', 'Loss2'])
 
         num_iter = 0
-        last_spike = -1e10
         grad_clip_val = config.grad_norm_clip
 
         base_model.train()  # set model to training mode
@@ -123,7 +122,9 @@ def run_net(args, config, train_writer=None, val_writer=None):
                 points = data.cuda()
             elif dataset_name == 'ModelNet':
                 points = data[0].cuda()
-                points = misc.fps(points, npoints)   
+                points = misc.fps(points, npoints)
+            elif dataset_name.startswith('ScanNet'):
+                points = data.cuda()
             else:
                 raise NotImplementedError(f'Train phase do not support {dataset_name}')
 

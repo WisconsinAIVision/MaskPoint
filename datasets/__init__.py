@@ -3,3 +3,4 @@ import datasets.ShapeNet55Dataset
 import datasets.ModelNetDataset
 import datasets.ModelNetDatasetFewShot
 import datasets.ScanObjectNNDataset
+import datasets.ScanNet

@@ -1,0 +1,5 @@
+NAME: ScanNet
+DATA_PATH: data/ScanNet
+FOLDER: scannet
+N_POINTS: 20000
+SPLIT: medium

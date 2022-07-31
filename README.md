@@ -12,13 +12,22 @@ Please check out our paper [here](https://arxiv.org/abs/2203.11183).
 
 ## Pretrained Models
 
-|  Task | Dataset | Config | Acc.| Download|      
+|  Task | Dataset | Config | Acc.| Download|
 |  ----- | ----- |-----|  -----| -----|
-|  Pre-training | ShapeNet |[pretrain_shapenet.yaml](./cfgs/pretrain_shapenet.yaml)| N.A. | {[w/o](https://static.hliu.cc/files/projects/maskpoint/checkpoints/pretrain_shapenet.pth),[w/](https://static.hliu.cc/files/projects/maskpoint/checkpoints/pretrain_shapenet_moco.pth)} MoCo |
+|  Pre-training | ShapeNet |[pretrain_shapenet.yaml](./cfgs/pretrain_shapenet.yaml)| -- | {[w/o](https://static.hliu.cc/files/projects/maskpoint/checkpoints/pretrain_shapenet.pth),[w/](https://static.hliu.cc/files/projects/maskpoint/checkpoints/pretrain_shapenet_moco.pth)} MoCo |
 |  Classification | ScanObjectNN |[finetune_scanobject_hardest.yaml](./cfgs/finetune_scanobject_hardest.yaml)| 84.6%| [here](https://static.hliu.cc/files/projects/maskpoint/checkpoints/finetune_scanobject_hardest.pth)  |
 |  Classification | ScanObjectNN |[finetune_scanobject_objectbg.yaml](./cfgs/finetune_scanobject_objectbg.yaml)|89.3% | [here](https://static.hliu.cc/files/projects/maskpoint/checkpoints/finetune_scanobject_objectbg.pth) |
 |  Classification | ScanObjectNN |[finetune_scanobject_objectonly.yaml](./cfgs/finetune_scanobject_objectonly.yaml)| 89.7%| [here](https://static.hliu.cc/files/projects/maskpoint/checkpoints/finetune_scanobject_objectonly.pth) |
 |  Classification | ModelNet40 |[finetune_modelnet.yaml](./cfgs/finetune_modelnet.yaml)| 93.8%| [here](https://static.hliu.cc/files/projects/maskpoint/checkpoints/finetune_modelnet.pth) |
+
+### 3D Object Detection
+
+|  Task | Dataset | Config | AP25 | AP50 | Download|
+|  ----- | ----- |-----|  -----|  -----| -----|
+|  Pre-training | ScanNet-Medium |[pretrain_scannet_enc3x.yaml](./cfgs/pretrain_scannet_enc3x.yaml)| -- | -- | [here](https://static.hliu.cc/files/projects/maskpoint/checkpoints/pretrain_scannet_medium_enc3x.pth) |
+|  Pre-training | ScanNet-Medium |[pretrain_scannet_enc12x.yaml](./cfgs/pretrain_scannet_enc12x.yaml)| -- | -- | [here](https://static.hliu.cc/files/projects/maskpoint/checkpoints/pretrain_scannet_medium_enc12x.pth) |
+|  Detection | ScanNetV2 |[finetune_scannetv2_enc3x.sh](https://github.com/mu-cai/3detr_MaskPoint/blob/main/train_enc3x.sh)| 63.4 | 40.6 | [here](https://static.hliu.cc/files/projects/maskpoint/checkpoints/finetune_scannetv2_enc3x.pth) |
+|  Detection | ScanNetV2 |[finetune_scannetv2_enc12x.sh](https://github.com/mu-cai/3detr_MaskPoint/blob/main/train_enc12x.sh)| 64.2 | 42.1 | [here](https://static.hliu.cc/files/projects/maskpoint/checkpoints/finetune_scannetv2_enc12x.pth) |
 
 
 ## Usage
@@ -53,6 +62,19 @@ python main.py --config cfgs/pretrain_shapenet.yaml \
     [--val_freq 10]
 ```
 *val_freq* controls the frequence to evaluate the Transformer on ModelNet40 with LinearSVM.
+
+Similarly, to pre-train the MaskPoint models on ScanNet-Medium, simply run:
+```
+# Pretrain 3x encoder model
+python main.py --config cfgs/pretrain_scannet_enc3x.yaml \
+    --exp_name pretrain_scannet_enc3x \
+    [--val_freq 10]
+
+# Pretrain 12x encoder model
+python main.py --config cfgs/pretrain_scannet_enc12x.yaml \
+    --exp_name pretrain_scannet_enc12x \
+    [--val_freq 10]
+```
 
 ### Fine-tuning on downstream tasks
 We finetune our MaskPoint on 5 downstream tasks: Classfication on ModelNet40, Few-shot learning on ModelNet40, Transfer learning on ScanObjectNN, Part segmentation on ShapeNetPart, and Object detection on ScanNetV2.
@@ -112,11 +134,11 @@ bash ./scripts/test_scan.sh <GPU_IDS>\
     --exp_name <name>
 ```
 
-#### ShapeNetPart
-Details coming soon..
-
 #### ScanNetV2
-Details coming soon..
+See [MaskPoint -- 3DETR Finetuning](https://github.com/mu-cai/3detr_MaskPoint) for detailed instructions.
+
+#### ShapeNetPart
+Coming soon..
 
 ## Citation
 ```

@@ -144,10 +144,16 @@ def load_model(base_model, ckpt_path, logger = None):
     # load state dict
     state_dict = torch.load(ckpt_path, map_location='cpu')
     # parameter resume of base model
+    def filter_module_from_key(key):
+        # Use this ugly function instead of doing k.replace("module.", "")
+        # As the 3detr checkpoints have "mlp_modules." which can be accidentally replaced.
+        if key.startswith("module."):
+            return key[7:]
+        return key
     if state_dict.get('model') is not None:
-        base_ckpt = {k.replace("module.", ""): v for k, v in state_dict['model'].items()}
+        base_ckpt = {filter_module_from_key(k): v for k, v in state_dict['model'].items()}
     elif state_dict.get('base_model') is not None:
-        base_ckpt = {k.replace("module.", ""): v for k, v in state_dict['base_model'].items()}
+        base_ckpt = {filter_module_from_key(k): v for k, v in state_dict['base_model'].items()}
     else:
         raise RuntimeError('mismatch of ckpt weight')
     base_model.load_state_dict(base_ckpt, strict = False)

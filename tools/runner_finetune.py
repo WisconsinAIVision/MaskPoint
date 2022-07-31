@@ -8,7 +8,7 @@ from utils.AverageMeter import AverageMeter
 
 import numpy as np
 from datasets import data_transforms
-from pointnet2_ops import pointnet2_utils
+from extensions.pointnet2 import pointnet2_utils
 from extensions.pointops.functions import pointops
 from torchvision import transforms
 from utils.grad_utils import IterativePercentile

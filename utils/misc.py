@@ -7,7 +7,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import os
 from collections import abc
-from pointnet2_ops import pointnet2_utils
+from extensions.pointnet2 import pointnet2_utils
 
 
 def fps(data, number):
