@@ -145,7 +145,7 @@ Coming soon..
 @article{liu2022masked,
   title={Masked Discrimination for Self-Supervised Learning on Point Clouds},
   author={Liu, Haotian and Cai, Mu and Lee, Yong Jae},
-  journal={arXiv preprint arXiv:2203.11183},
+  journal={Proceedings of the European Conference on Computer Vision (ECCV)},
   year={2022}
 }
 ```
